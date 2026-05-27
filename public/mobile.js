@@ -1,370 +1,356 @@
-// Parse room code from the URL path: /join/ABCD
-const roomCode = window.location.pathname.split('/').pop().toUpperCase();
-let socket = null;
+document.addEventListener('DOMContentLoaded', () => {
+  let socket = null;
+  let roomCode = '';
+  let myPlayerId = '';
+  let myColor = '';
+  let myDisplayName = '';
+  let piecesPlacedCount = 0;
+  let currentAssignedPieces = [];
+  let selectedPieceIndex = 0;
 
-// Control configurations
-let controlMode = 'tilt'; // 'tilt' or 'touch'
-let isConnected = false;
+  // Workspace configuration
+  const CANVAS_WIDTH = 1200;
+  const CANVAS_HEIGHT = 800;
+  let puzzleRows = 4;
+  let puzzleCols = 6;
 
-// Steering state
-let tiltX = 0; // -1 to 1
-let tiltY = 0; // -1 to 1
-let isBoosting = false;
-let isFiring = false;
+  // DOM Elements
+  const joinSection = document.getElementById('joinSection');
+  const waitingSection = document.getElementById('waitingSection');
+  const gameplaySection = document.getElementById('gameplaySection');
+  const completeSection = document.getElementById('completeSection');
 
-// Calibration references
-let calBeta = 0;
-let calGamma = 0;
-let rawBeta = 0;
-let rawGamma = 0;
-let hasCalibrated = false;
-
-// DOM Elements
-const permissionOverlay = document.getElementById('permissionOverlay');
-const gyroBtn = document.getElementById('gyroBtn');
-const joystickBtn = document.getElementById('joystickBtn');
-const calibrateBtn = document.getElementById('calibrateBtn');
-const trackpad = document.getElementById('trackpad');
-const knob = document.getElementById('knob');
-const controlSchemeLabel = document.getElementById('controlSchemeLabel');
-const calibrationMsg = document.getElementById('calibrationMsg');
-
-const metricX = document.getElementById('metricX');
-const metricY = document.getElementById('metricY');
-
-const boostBtn = document.getElementById('boostBtn');
-const fireBtn = document.getElementById('fireBtn');
-
-const mobileStatusDot = document.getElementById('mobileStatusDot');
-const mobileStatusText = document.getElementById('mobileStatusText');
-const reconnectOverlay = document.getElementById('reconnectOverlay');
-
-// Initialize WebSockets
-function connectSocket() {
-  socket = io();
-
-  socket.on('connect', () => {
-    console.log('Connected to server!');
-    // Request to join the room
-    socket.emit('join-room', roomCode);
-  });
-
-  socket.on('joined-successfully', () => {
-    console.log(`Joined room: ${roomCode}`);
-    isConnected = true;
-    mobileStatusDot.className = 'status-dot-sm pulsing-green';
-    mobileStatusText.textContent = `ROOM: ${roomCode}`;
-  });
-
-  socket.on('host-disconnected', () => {
-    console.log('Host disconnected!');
-    isConnected = false;
-    mobileStatusDot.className = 'status-dot-sm pulsing-red';
-    mobileStatusText.textContent = 'HOST OFFLINE';
-    reconnectOverlay.classList.remove('hidden');
-  });
-
-  socket.on('error-message', (msg) => {
-    alert(msg);
-    isConnected = false;
-    mobileStatusDot.className = 'status-dot-sm pulsing-red';
-    mobileStatusText.textContent = 'ERROR';
-  });
-
-  socket.on('disconnect', () => {
-    isConnected = false;
-    mobileStatusDot.className = 'status-dot-sm pulsing-red';
-    mobileStatusText.textContent = 'DISCONNECTED';
-  });
-}
-
-let motionCheckTimeout = null;
-let receivedOrientationEvents = 0;
-
-// Enable Device Orientation Sensors (Tilt Flight)
-function setupTiltControls() {
-  controlMode = 'tilt';
-  controlSchemeLabel.textContent = 'TILT FLIGHT ACTIVE';
-  calibrateBtn.style.display = 'block';
+  const joinForm = document.getElementById('joinForm');
+  const displayNameInput = document.getElementById('displayNameInput');
+  const joinRoomCode = document.getElementById('joinRoomCode');
   
-  // Hide joystick pointer events and keep knob centered
-  trackpad.style.opacity = '0.4';
-  resetKnobPosition();
+  const welcomeText = document.getElementById('welcomeText');
+  const playerColorVal = document.getElementById('playerColorVal');
 
-  // Listen to orientation events
-  window.addEventListener('deviceorientation', handleOrientation, true);
+  const headerPilotName = document.getElementById('headerPilotName');
+  const headerColorDot = document.getElementById('headerColorDot');
+  const gameProgressPct = document.getElementById('gameProgressPct');
+  const assignedPiecesPool = document.getElementById('assignedPiecesPool');
+  const dragBoard = document.getElementById('dragBoard');
+  const pieceSelectorContainer = document.getElementById('pieceSelectorContainer');
 
-  // Verification loop: verify if deviceorientation events are actually firing
-  receivedOrientationEvents = 0;
-  if (motionCheckTimeout) clearTimeout(motionCheckTimeout);
-  
-  motionCheckTimeout = setTimeout(() => {
-    if (receivedOrientationEvents === 0 && controlMode === 'tilt') {
-      console.warn('No deviceorientation events received. Sensors blocked.');
-      calibrationMsg.innerHTML = '⚠️ Gyro blocked (HTTP/iOS limitation).<br>Tap here to use Touch Trackpad.';
-      calibrationMsg.style.borderColor = 'var(--neon-red)';
-      calibrationMsg.style.color = 'var(--neon-red)';
-      calibrationMsg.style.cursor = 'pointer';
+  const myContributionsVal = document.getElementById('myContributionsVal');
+
+  // Extract roomCode from URL (/join/ABCD)
+  const pathParts = window.location.pathname.split('/');
+  roomCode = pathParts[pathParts.length - 1].toUpperCase();
+  joinRoomCode.textContent = roomCode;
+
+  // 1. JOIN FORM FORM SUBMISSION
+  joinForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    myDisplayName = displayNameInput.value.trim();
+    if (!myDisplayName) return;
+
+    initializeSocketConnection();
+  });
+
+  // 2. SOCKET AND PAIRING MANAGEMENT
+  function initializeSocketConnection() {
+    socket = io();
+
+    socket.on('connect', () => {
+      // Send join message
+      socket.emit('join-room', { roomCode, displayName: myDisplayName });
+    });
+
+    socket.on('joined-successfully', (data) => {
+      myPlayerId = data.playerId;
+      myColor = data.color;
       
-      // Allow user to tap the message box to switch to trackpad
-      calibrationMsg.onclick = () => {
-        setupTouchControls();
-        calibrationMsg.onclick = null;
-      };
-    }
-  }, 1500);
-}
+      // Update UI
+      welcomeText.textContent = `WELCOME, ${myDisplayName.toUpperCase()}`;
+      playerColorVal.textContent = getNeonColorName(myColor);
+      playerColorVal.style.color = myColor;
+      
+      joinSection.classList.add('hidden');
+      waitingSection.classList.remove('hidden');
+    });
 
-// Orientation Event Handler
-function handleOrientation(event) {
-  if (controlMode !== 'tilt') return;
-
-  receivedOrientationEvents++;
-  
-  // Reset alert message when we start receiving events successfully
-  if (receivedOrientationEvents === 1) {
-    calibrationMsg.innerHTML = 'Hold device level & tap CALIBRATE to center.';
-    calibrationMsg.style.borderColor = 'rgba(255, 184, 0, 0.3)';
-    calibrationMsg.style.color = 'var(--neon-yellow)';
-    calibrationMsg.style.cursor = 'default';
-    calibrationMsg.onclick = null;
-  }
-
-  // beta: front-to-back tilt (-180 to 180)
-  // gamma: left-to-right tilt (-90 to 90)
-  rawBeta = event.beta || 0;
-  rawGamma = event.gamma || 0;
-
-  // Calibrate first reading automatically
-  if (!hasCalibrated) {
-    calibrateSensors();
-  }
-
-  // Get difference from calibration baseline
-  const diffBeta = rawBeta - calBeta;
-  const diffGamma = rawGamma - calGamma;
-
-  // Determine steering directions depending on device orientation angle
-  // In landscape mode, rotating like a wheel shifts beta, pitching screen shifts gamma
-  const screenAngle = window.orientation || (screen.orientation && screen.orientation.angle) || 90;
-  
-  let targetTiltX = 0;
-  let targetTiltY = 0;
-
-  // Sensitivity scales (in degrees for full activation)
-  const steerSensitivity = 22; 
-  const pitchSensitivity = 18;
-
-  if (screenAngle === 90) {
-    // Landscape rotated left (standard)
-    targetTiltX = diffBeta / steerSensitivity;
-    targetTiltY = -diffGamma / pitchSensitivity;
-  } else if (screenAngle === -90 || screenAngle === 270) {
-    // Landscape rotated right (upside down)
-    targetTiltX = -diffBeta / steerSensitivity;
-    targetTiltY = diffGamma / pitchSensitivity;
-  } else {
-    // Portrait (fallback, CSS will ask to rotate anyway)
-    targetTiltX = diffGamma / steerSensitivity;
-    targetTiltY = diffBeta / pitchSensitivity;
-  }
-
-  // Clamp values between -1.0 and 1.0
-  tiltX = Math.max(-1.0, Math.min(1.0, targetTiltX));
-  tiltY = Math.max(-1.0, Math.min(1.0, targetTiltY));
-
-  // Update numerical metrics on controller HUD
-  metricX.textContent = tiltX.toFixed(2);
-  metricY.textContent = tiltY.toFixed(2);
-
-  // Visually translate the touch pad knob to reflect tilt levels!
-  const maxRadius = trackpad.clientWidth / 2 - knob.clientWidth / 2;
-  const knobX = tiltX * maxRadius;
-  const knobY = tiltY * maxRadius;
-  knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
-}
-
-// Calibrate gyro sensors
-function calibrateSensors() {
-  calBeta = rawBeta;
-  calGamma = rawGamma;
-  hasCalibrated = true;
-  console.log(`Calibrated sensors: Beta=${calBeta.toFixed(1)}, Gamma=${calGamma.toFixed(1)}`);
-  
-  calibrationMsg.textContent = 'Calibrated successfully!';
-  calibrationMsg.style.borderColor = 'var(--neon-cyan)';
-  calibrationMsg.style.color = 'var(--neon-cyan)';
-  
-  setTimeout(() => {
-    calibrationMsg.textContent = 'Hold level & tap CALIBRATE to center.';
-    calibrationMsg.style.borderColor = 'rgba(255, 184, 0, 0.3)';
-    calibrationMsg.style.color = 'var(--neon-yellow)';
-  }, 2000);
-}
-
-// Enable Touch Trackpad (No Gyro Fallback)
-function setupTouchControls() {
-  controlMode = 'touch';
-  controlSchemeLabel.textContent = 'TRACKPAD ACTIVE';
-  calibrateBtn.style.display = 'none';
-  trackpad.style.opacity = '1.0';
-  resetKnobPosition();
-  
-  // Update instructions
-  calibrationMsg.innerHTML = 'Drag finger on trackpad to steer ship.';
-  calibrationMsg.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-  calibrationMsg.style.color = 'rgba(255, 255, 255, 0.6)';
-  calibrationMsg.style.cursor = 'default';
-  calibrationMsg.onclick = null;
-
-  // Remove orientation listener if present
-  window.removeEventListener('deviceorientation', handleOrientation, true);
-
-  // Setup drag event listeners on trackpad
-  trackpad.addEventListener('touchstart', handleTouchStart, { passive: false });
-  trackpad.addEventListener('touchmove', handleTouchMove, { passive: false });
-  trackpad.addEventListener('touchend', handleTouchEnd, { passive: false });
-}
-
-// Touch Handling Logic
-let trackpadRect = null;
-
-function handleTouchStart(e) {
-  e.preventDefault();
-  trackpadRect = trackpad.getBoundingClientRect();
-  updateTouchPosition(e.touches[0]);
-}
-
-function handleTouchMove(e) {
-  e.preventDefault();
-  if (!trackpadRect) return;
-  updateTouchPosition(e.touches[0]);
-}
-
-function handleTouchEnd(e) {
-  e.preventDefault();
-  trackpadRect = null;
-  tiltX = 0;
-  tiltY = 0;
-  resetKnobPosition();
-  metricX.textContent = '0.00';
-  metricY.textContent = '0.00';
-}
-
-function updateTouchPosition(touch) {
-  const centerX = trackpadRect.left + trackpadRect.width / 2;
-  const centerY = trackpadRect.top + trackpadRect.height / 2;
-  
-  const dx = touch.clientX - centerX;
-  const dy = touch.clientY - centerY;
-  
-  const maxRadius = trackpadRect.width / 2 - knob.clientWidth / 2;
-  const distance = Math.hypot(dx, dy);
-  
-  let targetX = dx;
-  let targetY = dy;
-  
-  // Clamp knob position inside circular boundary
-  if (distance > maxRadius) {
-    const angle = Math.atan2(dy, dx);
-    targetX = Math.cos(angle) * maxRadius;
-    targetY = Math.sin(angle) * maxRadius;
-  }
-  
-  knob.style.transform = `translate(${targetX}px, ${targetY}px)`;
-  
-  // Set normalized steering values
-  tiltX = targetX / maxRadius;
-  tiltY = targetY / maxRadius;
-  
-  metricX.textContent = tiltX.toFixed(2);
-  metricY.textContent = tiltY.toFixed(2);
-}
-
-function resetKnobPosition() {
-  knob.style.transform = 'translate(0px, 0px)';
-}
-
-// Set up Action Buttons (Boost & Fire)
-function setupActionButtons() {
-  // Boost events (Touch Start/End)
-  boostBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    isBoosting = true;
-  }, { passive: false });
-
-  boostBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    isBoosting = false;
-  }, { passive: false });
-
-  // Fire events
-  fireBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    isFiring = true;
-  }, { passive: false });
-
-  fireBtn.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    isFiring = false;
-  }, { passive: false });
-}
-
-// Onboarding Permission Screens Handlers
-gyroBtn.addEventListener('click', async () => {
-  // iOS Device Orientation permission request
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try {
-      const response = await DeviceOrientationEvent.requestPermission();
-      if (response === 'granted') {
-        setupTiltControls();
-      } else {
-        console.warn('Orientation permission denied, falling back to touch.');
-        setupTouchControls();
+    socket.on('room-update', (data) => {
+      if (data.status === 'active') {
+        waitingSection.classList.add('hidden');
+        gameplaySection.classList.remove('hidden');
       }
-    } catch (err) {
-      console.error('Error requesting orientation permission:', err);
-      setupTouchControls();
-    }
-  } else {
-    // Normal browser / Android
-    setupTiltControls();
-  }
-  
-  permissionOverlay.classList.add('hidden');
-  connectSocket();
-});
+    });
 
-joystickBtn.addEventListener('click', () => {
-  setupTouchControls();
-  permissionOverlay.classList.add('hidden');
-  connectSocket();
-});
+    socket.on('activity-start', (data) => {
+      waitingSection.classList.add('hidden');
+      completeSection.classList.add('hidden');
+      gameplaySection.classList.remove('hidden');
+      
+      // Initialise header details
+      headerPilotName.textContent = myDisplayName.toUpperCase();
+      headerColorDot.style.backgroundColor = myColor;
+      headerColorDot.style.boxShadow = `0 0 8px ${myColor}`;
+      
+      gameProgressPct.textContent = `${data.state.progress}%`;
+      currentAssignedPieces = data.state.assignedPieces || [];
+      selectedPieceIndex = 0;
+      
+      // Set background image on dragBoard as a ghost reference
+      if (data.state.imageUrl) {
+        dragBoard.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)), url(${data.state.imageUrl})`;
+        dragBoard.style.backgroundSize = '100% 100%';
+        dragBoard.style.backgroundPosition = 'center';
+      }
 
-calibrateBtn.addEventListener('click', () => {
-  if (controlMode === 'tilt') {
-    calibrateSensors();
-  }
-});
+      // Configure grid overlay to match server rows/cols
+      const gridOverlay = document.getElementById('gridOverlay');
+      if (gridOverlay && data.state.rows && data.state.cols) {
+        puzzleRows = data.state.rows;
+        puzzleCols = data.state.cols;
+        gridOverlay.style.gridTemplateColumns = `repeat(${puzzleCols}, 1fr)`;
+        gridOverlay.style.gridTemplateRows = `repeat(${puzzleRows}, 1fr)`;
+        gridOverlay.innerHTML = '';
+        const totalCells = puzzleRows * puzzleCols;
+        for (let i = 0; i < totalCells; i++) {
+          gridOverlay.appendChild(document.createElement('div'));
+        }
+      }
 
-// Periodic Input Transmitter (40Hz / 25ms tick rate)
-setInterval(() => {
-  if (isConnected && socket) {
-    socket.emit('controller-input', {
-      tiltX: tiltX,
-      tiltY: tiltY,
-      boost: isBoosting,
-      fire: isFiring,
-      // If player is on gameover screen, tapping FIRE will act as RESTART
-      restart: isFiring
+      renderAssignedPieces();
+    });
+
+    socket.on('assign-pieces', (data) => {
+      currentAssignedPieces = data.assignedPieces || [];
+      selectedPieceIndex = Math.max(0, Math.min(selectedPieceIndex, currentAssignedPieces.length - 1));
+      renderAssignedPieces();
+    });
+
+    socket.on('piece-placed', (data) => {
+      gameProgressPct.textContent = `${data.progress}%`;
+      // Check if this was solved by me
+      if (data.placedBy.toLowerCase() === myDisplayName.toLowerCase()) {
+        piecesPlacedCount++;
+        triggerHapticFeedback(true);
+      }
+    });
+
+    socket.on('placement-incorrect', (data) => {
+      triggerHapticFeedback(false);
+      // Find matching piece and run shake animation
+      const el = document.getElementById(data.pieceId);
+      if (el) {
+        el.classList.add('shake');
+        setTimeout(() => el.classList.remove('shake'), 500);
+      }
+    });
+
+    socket.on('activity-complete', () => {
+      gameplaySection.classList.add('hidden');
+      completeSection.classList.remove('hidden');
+      myContributionsVal.textContent = piecesPlacedCount;
+    });
+
+    socket.on('host-disconnected', () => {
+      alert('Event Big Screen disconnected. Returning to entry screen.');
+      window.location.reload();
+    });
+
+    socket.on('error-message', (msg) => {
+      alert(msg);
+      window.location.reload();
     });
   }
-}, 25);
 
-// DOM setup
-window.addEventListener('DOMContentLoaded', () => {
-  setupActionButtons();
-  
-  // Auto-connect socket if session has already chosen control layout (e.g. reload safety)
-  // Let the user click onboarding to guarantee user gesture for gyro permissions.
+  // 3. PIECE RENDERER & TOUCH DRAGGING ENGINE
+  function renderAssignedPieces() {
+    assignedPiecesPool.innerHTML = '';
+    pieceSelectorContainer.innerHTML = '';
+
+    // Guard against undefined/null (shouldn't happen but defensive)
+    if (!currentAssignedPieces || currentAssignedPieces.length === 0) {
+      assignedPiecesPool.innerHTML = '<div class="minimap-hint" style="color: var(--color-cyan)">Waiting for piece assignment...</div>';
+      return;
+    }
+
+    // Ensure selectedPieceIndex is in valid range
+    selectedPieceIndex = Math.max(0, Math.min(selectedPieceIndex, currentAssignedPieces.length - 1));
+
+    // Show the active piece — centered in the drag board.
+    // Player drags it to its correct grid position.
+    const p = currentAssignedPieces[selectedPieceIndex];
+
+    const el = document.createElement('div');
+    el.className = 'draggable-piece';
+    el.id = p.id;
+    // Set dynamic dimensions to exactly match the grid cell size
+    const percentWidth = 100 / puzzleCols;
+    const percentHeight = 100 / puzzleRows;
+    el.style.width = `${percentWidth}%`;
+    el.style.height = `${percentHeight}%`;
+    
+    // Position at the bottom initially, centered horizontally
+    el.style.left = '50%';
+    el.style.top = '75%';
+    el.innerHTML = `<img src="${p.imageUrl}" alt="Puzzle Piece" draggable="false" />`;
+
+    assignedPiecesPool.appendChild(el);
+    setupDragging(el, p);
+
+    // Show a hint label indicating the grid target (row, col) for this piece
+    const hint = document.createElement('div');
+    hint.style.cssText = 'position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:11px;color:rgba(0,243,255,0.5);font-family:monospace;pointer-events:none;';
+    hint.textContent = `Target: row ${p.row + 1}, col ${p.col + 1}`;
+    assignedPiecesPool.appendChild(hint);
+
+    // Render selector tabs if there are multiple pieces
+    if (currentAssignedPieces.length > 1) {
+      currentAssignedPieces.forEach((piece, idx) => {
+        const tab = document.createElement('div');
+        tab.className = `piece-tab ${idx === selectedPieceIndex ? 'active' : ''}`;
+        
+        tab.innerHTML = `
+          <div class="piece-tab-thumb">
+            <img src="${piece.imageUrl}" alt="Piece Thumbnail" draggable="false" />
+          </div>
+          <div class="piece-tab-info">
+            <span class="tab-title">Piece ${idx + 1}</span>
+            <span class="tab-target">Row ${piece.row + 1}, Col ${piece.col + 1}</span>
+          </div>
+        `;
+        
+        tab.addEventListener('click', () => {
+          if (selectedPieceIndex !== idx) {
+            selectedPieceIndex = idx;
+            renderAssignedPieces();
+          }
+        });
+        
+        pieceSelectorContainer.appendChild(tab);
+      });
+    }
+  }
+
+  function setupDragging(element, pieceInfo) {
+    let active = false;
+    let currentX = 0;
+    let currentY = 0;
+    let initialX = 0;
+    let initialY = 0;
+    let xOffset = 0;
+    let yOffset = 0;
+
+    // Attach only pointerdown to the element.
+    // pointermove/pointerup are added to document only while dragging
+    // and removed immediately on release — prevents listener accumulation.
+    element.addEventListener('pointerdown', dragStart);
+
+    function dragStart(e) {
+      e.preventDefault();
+      active = true;
+      element.classList.add('dragging');
+
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+
+      // Add move/up listeners only for the duration of this drag
+      document.addEventListener('pointermove', drag, { passive: false });
+      document.addEventListener('pointerup', dragEnd);
+    }
+
+    function drag(e) {
+      if (!active) return;
+      e.preventDefault();
+
+      currentX = e.clientX - initialX;
+      currentY = e.clientY - initialY;
+
+      xOffset = currentX;
+      yOffset = currentY;
+
+      element.style.transform = `translate(calc(-50% + ${currentX}px), calc(-50% + ${currentY}px)) scale(1.1)`;
+
+      // Map touch position to the 1200×800 server canvas coordinate space
+      const rect = dragBoard.getBoundingClientRect();
+      const touchX = e.clientX - rect.left;
+      const touchY = e.clientY - rect.top;
+
+      // Snap to the nearest grid cell to remove guesswork
+      const cellWidth = rect.width / puzzleCols;
+      const cellHeight = rect.height / puzzleRows;
+      
+      const targetCol = Math.max(0, Math.min(puzzleCols - 1, Math.floor(touchX / cellWidth)));
+      const targetRow = Math.max(0, Math.min(puzzleRows - 1, Math.floor(touchY / cellHeight)));
+
+      const canvasX = Math.round(targetCol * (CANVAS_WIDTH / puzzleCols));
+      const canvasY = Math.round(targetRow * (CANVAS_HEIGHT / puzzleRows));
+
+      // Emit live position so big screen can show the drag in real time
+      socket.emit('move-piece', {
+        pieceId: pieceInfo.id,
+        currentX: canvasX,
+        currentY: canvasY
+      });
+    }
+
+    function dragEnd(e) {
+      if (!active) return;
+      active = false;
+      element.classList.remove('dragging');
+
+      // Always remove the document-level listeners immediately
+      document.removeEventListener('pointermove', drag);
+      document.removeEventListener('pointerup', dragEnd);
+
+      const rect = dragBoard.getBoundingClientRect();
+      const touchX = e.clientX - rect.left;
+      const touchY = e.clientY - rect.top;
+
+      const cellWidth = rect.width / puzzleCols;
+      const cellHeight = rect.height / puzzleRows;
+
+      const targetCol = Math.max(0, Math.min(puzzleCols - 1, Math.floor(touchX / cellWidth)));
+      const targetRow = Math.max(0, Math.min(puzzleRows - 1, Math.floor(touchY / cellHeight)));
+
+      const canvasX = Math.round(targetCol * (CANVAS_WIDTH / puzzleCols));
+      const canvasY = Math.round(targetRow * (CANVAS_HEIGHT / puzzleRows));
+
+      // Final placement submission
+      socket.emit('place-piece', {
+        pieceId: pieceInfo.id,
+        currentX: canvasX,
+        currentY: canvasY
+      });
+
+      // Reset visual position — server will confirm or deny placement
+      xOffset = 0;
+      yOffset = 0;
+      element.style.transform = `translate(-50%, -50%)`;
+    }
+  }
+
+  // Helper colors
+  function getNeonColorName(hex) {
+    const colors = {
+      '#ff007f': 'NEON PINK',
+      '#00f3ff': 'NEON CYAN',
+      '#ffb800': 'NEON GOLD',
+      '#39ff14': 'NEON GRASS',
+      '#9d00ff': 'NEON AMETHYST',
+      '#ff4500': 'NEON RED',
+      '#e0b0ff': 'NEON MAUVE',
+      '#ff00ff': 'NEON MAGENTA'
+    };
+    return colors[hex] || 'NEON PILOT';
+  }
+
+  // 4. HAPTICS (Device Vibration)
+  function triggerHapticFeedback(success) {
+    if ('vibrate' in navigator) {
+      if (success) {
+        // Success haptic: short double tap
+        navigator.vibrate([40, 40, 60]);
+      } else {
+        // Failure haptic: long single rumble
+        navigator.vibrate(200);
+      }
+    }
+  }
 });

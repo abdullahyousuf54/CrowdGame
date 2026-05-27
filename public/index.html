@@ -3,145 +3,131 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neon Cosmos | Desktop Game Demo</title>
-  <!-- Google Fonts for retro synthwave look -->
+  <title>CrowdPlay | Interactive Event Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080415;
+      --color-cyan: #00f3ff;
+      --color-pink: #ff007f;
+      --font-main: 'Outfit', sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: var(--bg-dark);
+      color: #fff;
+      font-family: var(--font-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+    .crt {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(255, 0, 127, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(0, 243, 255, 0.1) 0%, transparent 40%);
+      z-index: -1;
+    }
+    .launcher {
+      text-align: center;
+      background: rgba(15, 9, 38, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 50px;
+      border-radius: 20px;
+      border: 1.5px solid rgba(255, 0, 127, 0.25);
+      box-shadow: 0 10px 45px rgba(0,0,0,0.5);
+      max-width: 500px;
+      width: 90%;
+    }
+    h1 {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      color: var(--color-cyan);
+      margin-bottom: 10px;
+      text-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+    }
+    .pink {
+      color: var(--color-pink);
+      text-shadow: 0 0 15px rgba(255, 0, 127, 0.5);
+    }
+    p {
+      color: #94a3b8;
+      font-size: 16px;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .btn {
+      display: block;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      border-radius: 8px;
+      text-align: center;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .btn-pink {
+      background: var(--color-pink);
+      color: #000;
+    }
+    .btn-pink:hover {
+      background: #ff3399;
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.6);
+    }
+    .btn-cyan {
+      background: transparent;
+      color: var(--color-cyan);
+      border: 1.5px solid var(--color-cyan);
+    }
+    .btn-cyan:hover {
+      background: var(--color-cyan);
+      color: #000;
+      box-shadow: 0 0 15px var(--color-cyan);
+    }
+  </style>
 </head>
-<body class="desktop-body">
-  <!-- Glowing CRT-style scanline overlay -->
-  <div class="crt-overlay"></div>
+<body>
+  <div class="crt"></div>
+  <div class="glow"></div>
 
-  <!-- Background neon grid (decorative) -->
-  <div class="grid-container" id="gridContainer">
-    <div class="grid-plane grid-floor"></div>
-    <div class="grid-plane grid-ceiling"></div>
-  </div>
-
-  <!-- Space dust particle canvas for background parallax -->
-  <canvas id="bgCanvas" class="bg-canvas"></canvas>
-
-  <!-- Setup/Pairing Screen -->
-  <div id="setupScreen" class="overlay-screen active">
-    <header class="game-header">
-      <h1 class="neon-title glow-magenta">NEON COSMOS</h1>
-      <p class="subtitle glow-cyan">MOBILE TILT SENSOR CONTROLLER DEMO</p>
-    </header>
-
-    <div class="setup-container">
-      <div class="instruction-box">
-        <h2 class="section-title">PILOT ONBOARDING</h2>
-        <ol class="instruction-list">
-          <li>Ensure your mobile device is connected to the <strong>same Wi-Fi network</strong>.</li>
-          <li>Scan the QR code, or open the link below.</li>
-          <li><strong>Note</strong>: This local server runs over HTTPS for sensor security. Click <strong>Advanced/Show Details</strong> and select <strong>Proceed/Visit Website</strong> to accept the temporary self-signed certificate!</li>
-          <li>Choose <strong>TILT FLIGHT</strong>, allow device orientation permissions, then steer!</li>
-        </ol>
-        
-        <div class="connection-status-box">
-          <div class="status-indicator">
-            <span class="status-dot pulsing-red" id="statusDot"></span>
-            <span class="status-text" id="statusText">WAITING FOR PILOT...</span>
-          </div>
-          <div class="room-code-display">
-            <span class="label">ROOM CODE</span>
-            <span class="code" id="roomCodeVal">----</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="qr-box">
-        <div class="qr-frame">
-          <div id="qrcode" class="qr-image-placeholder">
-            <!-- Dynamically populated QR Code -->
-            <div class="loader"></div>
-          </div>
-        </div>
-        <div class="qr-url-text" id="joinUrlVal">Detecting local network...</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main Game Layout -->
-  <main id="gameContainer" class="game-container hidden">
-    <!-- Real-time HUD -->
-    <div class="hud">
-      <div class="hud-left">
-        <div class="hud-item score-box">
-          <span class="hud-label">SCORE</span>
-          <span class="hud-value glow-cyan" id="scoreVal">000000</span>
-        </div>
-        <div class="hud-item speed-box">
-          <span class="hud-label">SPEED</span>
-          <span class="hud-value glow-blue" id="speedVal">0 km/h</span>
-        </div>
-      </div>
-
-      <div class="hud-center">
-        <div class="hud-indicator" id="boostIndicator">
-          <span class="hud-label">THRUST BOOST ACTIVE</span>
-        </div>
-      </div>
-
-      <div class="hud-right">
-        <!-- Shield bar -->
-        <div class="hud-bar-container">
-          <div class="hud-label-row">
-            <span>SHIELD INTEGRITY</span>
-            <span id="shieldText">100%</span>
-          </div>
-          <div class="hud-bar">
-            <div class="hud-bar-fill shield-fill" id="shieldFill"></div>
-          </div>
-        </div>
-        <!-- Energy bar -->
-        <div class="hud-bar-container">
-          <div class="hud-label-row">
-            <span>BOOST ENERGY</span>
-            <span id="energyText">100%</span>
-          </div>
-          <div class="hud-bar">
-            <div class="hud-bar-fill energy-fill" id="energyFill"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Active controller tag -->
-    <div class="controller-tag">
-      <span class="tag-icon">🎮</span> Controller: <span id="controllerName">TILT ACTIVE</span>
-    </div>
-
-    <!-- Main HTML5 Canvas -->
-    <canvas id="gameCanvas"></canvas>
-  </main>
-
-  <!-- Game Over Screen -->
-  <div id="gameOverScreen" class="overlay-screen hidden">
-    <h2 class="neon-title glow-red text-center">SYSTEM FAILURE</h2>
-    <p class="subtitle glow-magenta text-center">YOUR SPACESHIP WAS DESTROYED</p>
+  <div class="launcher">
+    <h1>CROWD<span class="pink">PLAY</span></h1>
+    <p>Interactive social games and collaborative puzzle modules designed for events, malls, and conferences.</p>
     
-    <div class="stats-card">
-      <div class="stats-row">
-        <span>FINAL SCORE:</span>
-        <span class="stats-value glow-cyan" id="finalScoreVal">0</span>
-      </div>
-      <div class="stats-row">
-        <span>CRYSTALS COLLECTED:</span>
-        <span class="stats-value glow-magenta" id="finalCrystalsVal">0</span>
-      </div>
-    </div>
-
-    <div class="restart-prompt font-mono">
-      WAITING FOR PILOT RESTART...
+    <div class="btn-group">
+      <a href="/admin" class="btn btn-pink">Enter Admin Panel</a>
+      <a href="/screen/DEMO" class="btn btn-cyan">Open Big Screen Display</a>
     </div>
   </div>
-
-  <!-- Socket.io client -->
-  <script src="/socket.io/socket.io.js"></script>
-  <!-- Main Desktop Game Logic -->
-  <script src="/desktop.js"></script>
 </body>
 </html>

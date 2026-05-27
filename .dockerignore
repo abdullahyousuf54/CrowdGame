@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.dockerignore
+crowdplay.sqlite
+public/uploads/*
+!public/uploads/default-puzzle.png
+infrastructure/
+.github/
+README.md
+LICENSE

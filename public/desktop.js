@@ -151,7 +151,7 @@ const player = {
 // Connect to Server & Setup QR code pairing
 async function setupConnection() {
   try {
-    const response = await fetch('/api/config');
+    const response = await fetch('/api/room/config');
     const config = await response.json();
     
     roomCode = config.roomCode;
