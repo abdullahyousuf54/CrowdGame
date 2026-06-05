@@ -68,11 +68,11 @@ function initSockets(io) {
     });
 
     // 2. Mobile Player joins room
-    socket.on('join-room', ({ roomCode, displayName }) => {
+    socket.on('join-room', ({ roomCode, displayName, avatarData }) => {
       roomCode = roomCode.toUpperCase();
       console.log(`Player '${displayName}' requesting join for Room: ${roomCode}`);
 
-      const result = roomManager.joinRoom(roomCode, socket.id, displayName);
+      const result = roomManager.joinRoom(roomCode, socket.id, displayName, avatarData);
       if (!result.success) {
         socket.emit('error-message', result.error);
         return;
@@ -86,7 +86,8 @@ function initSockets(io) {
       socket.emit('joined-successfully', {
         playerId: result.participant.id,
         color: result.participant.color,
-        displayName: result.participant.displayName
+        displayName: result.participant.displayName,
+        avatarData: result.participant.avatarData
       });
 
       // Broadcast updated participant list to everyone in the room
@@ -111,7 +112,7 @@ function initSockets(io) {
     //   a) carry a valid admin JWT (socket.isAdmin), OR
     //   b) be the registered host socket for that room.
     // This prevents any arbitrary player from starting or restarting the game.
-    socket.on('admin-start-activity', async ({ roomCode, rows, cols, imageUrl }) => {
+    socket.on('admin-start-activity', async ({ roomCode, rows, cols, imageUrl, difficulty }) => {
       console.log(`Admin requested activity start in room: ${roomCode}`);
 
       const room = roomManager.getRoom(roomCode);
@@ -131,7 +132,8 @@ function initSockets(io) {
       const activityConfig = {
         rows: parseInt(rows) || 4,
         cols: parseInt(cols) || 6,
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        difficulty: difficulty || 'simple' // NEW: Default to 'simple' for backward compatibility
       };
 
       const result = await roomManager.startActivity(roomCode, 'jigsaw', activityConfig);
@@ -143,7 +145,14 @@ function initSockets(io) {
       // Notify host and all players that the activity has started
       io.to(room.hostSocketId).emit('activity-start', {
         type: 'jigsaw',
-        state: room.activity.getStateForScreen()
+        state: room.activity.getStateForScreen(),
+        participants: Array.from(room.participants.values()).map(p => ({
+          id: p.id,
+          displayName: p.displayName,
+          color: p.color,
+          score: p.score,
+          avatarData: p.avatarData
+        }))
       });
 
       // Send personalized starting configurations to each player
@@ -166,12 +175,33 @@ function initSockets(io) {
       const player = room.participants.get(socket.playerId);
       if (!player) return;
 
-      const { pieceId, currentX, currentY } = actionData;
+      const { pieceId, currentX, currentY, currentRotation } = actionData; // NEW: Include rotation
       const piece = room.activity.pieces.find(p => p.id === pieceId);
       if (piece && piece.assignedTo === player.id && !piece.isPlaced) {
         piece.currentX = currentX;
         piece.currentY = currentY;
-        io.to(room.hostSocketId).emit('piece-move', { pieceId, currentX, currentY });
+        if (currentRotation !== undefined) piece.currentRotation = currentRotation; // NEW
+        io.to(room.hostSocketId).emit('piece-move', { pieceId, currentX, currentY, currentRotation }); // NEW
+      }
+    });
+
+    // NEW: Handle rotation-only updates
+    socket.on('rotate-piece', (actionData) => {
+      if (socket.role !== 'player' || !socket.roomCode) return;
+      
+      const room = roomManager.getRoom(socket.roomCode);
+      if (!room || !room.activity || room.status !== 'active') return;
+
+      const player = room.participants.get(socket.playerId);
+      if (!player) return;
+
+      const result = room.activity.onPlayerAction(player, 'rotate-piece', actionData);
+      if (result && result.success) {
+        // Broadcast rotation to host screen
+        io.to(room.hostSocketId).emit('piece-rotated', {
+          pieceId: result.pieceId,
+          rotation: result.rotation
+        });
       }
     });
 
@@ -196,7 +226,9 @@ function initSockets(io) {
           pieceId: result.pieceId,
           correctX: result.correctX,
           correctY: result.correctY,
+          correctRotation: result.correctRotation, // NEW
           placedBy: result.placedBy,
+          playerId: socket.playerId,
           score: result.score,
           progress: result.progress,
           isSolved: result.isSolved
@@ -211,7 +243,12 @@ function initSockets(io) {
         if (result.isSolved) {
           // Sort participants by score for the final leaderboard
           const leaderboard = Array.from(room.participants.values())
-            .map(p => ({ displayName: p.displayName, score: p.score, color: p.color }))
+            .map(p => ({ 
+              displayName: p.displayName, 
+              score: p.score, 
+              color: p.color,
+              avatarData: p.avatarData 
+            }))
             .sort((a, b) => b.score - a.score);
 
           io.to(socket.roomCode).emit('activity-complete', {

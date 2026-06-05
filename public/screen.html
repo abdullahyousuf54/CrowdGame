@@ -46,40 +46,57 @@
     <div class="player-roster">
       <h3>Active Pilots (<span id="playerCount">0</span>)</h3>
       <div class="player-grid" id="playerGrid">
-        <!-- Avatars will be dynamically created here -->
+        <!-- Player avatars will be dynamically created here -->
       </div>
     </div>
   </div>
 
   <!-- 2. GAMEPLAY SCREEN (Puzzle canvas) -->
   <div id="gameplayScreen" class="screen-panel hidden">
-    <!-- Top HUD status bar -->
-    <div class="game-hud">
-      <div class="hud-item">
-        <span class="hud-label">ACTIVITY</span>
-        <span class="hud-value neon-cyan">COLLABORATIVE JIGSAW</span>
-      </div>
-      <div class="hud-item progress-container">
-        <span class="hud-label">SOLVED</span>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" id="hudProgressFill" style="width: 0%"></div>
+    <!-- Main gameplay container -->
+    <div class="gameplay-container">
+      <!-- Left side: Game content -->
+      <div class="game-content">
+        <!-- Top HUD status bar -->
+        <div class="game-hud">
+          <div class="hud-item">
+            <span class="hud-label">ACTIVITY</span>
+            <span class="hud-value neon-cyan">COLLABORATIVE JIGSAW</span>
+          </div>
+          <div class="hud-item progress-container">
+            <span class="hud-label">SOLVED</span>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="hudProgressFill" style="width: 0%"></div>
+            </div>
+            <span class="hud-value" id="hudProgressText">0%</span>
+          </div>
+          <div class="hud-item">
+            <span class="hud-label">ROOM</span>
+            <span class="hud-value neon-pink" id="hudRoomCode">----</span>
+          </div>
         </div>
-        <span class="hud-value" id="hudProgressText">0%</span>
-      </div>
-      <div class="hud-item">
-        <span class="hud-label">ROOM</span>
-        <span class="hud-value neon-pink" id="hudRoomCode">----</span>
-      </div>
-    </div>
 
-    <!-- The actual Jigsaw canvas board -->
-    <div class="canvas-container">
-      <canvas id="puzzleCanvas" width="1200" height="800"></canvas>
-    </div>
+        <!-- The actual Jigsaw canvas board -->
+        <div class="canvas-container">
+          <canvas id="puzzleCanvas" width="1200" height="800"></canvas>
+        </div>
 
-    <!-- Real-time activity ticker -->
-    <div class="activity-ticker" id="activityTicker">
-      SYSTEM ONLINE — Solvers ready
+        <!-- Real-time activity ticker -->
+        <div class="activity-ticker" id="activityTicker">
+          SYSTEM ONLINE — Solvers ready
+        </div>
+      </div>
+
+      <!-- Right side: Live Leaderboard -->
+      <div class="live-leaderboard">
+        <div class="leaderboard-header">
+          <h2>🏆 LIVE RANKINGS</h2>
+          <div class="leaderboard-subtitle">REAL-TIME SCORES</div>
+        </div>
+        <div class="leaderboard-body" id="liveLeaderboardBody">
+          <!-- Live leaderboard items will be dynamically inserted here -->
+        </div>
+      </div>
     </div>
   </div>
 

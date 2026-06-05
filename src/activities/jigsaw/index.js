@@ -30,7 +30,13 @@ class JigsawActivity extends BaseActivity {
     this.cols = config.cols || 6;
     
     // Snap tolerance (in pixels) on the 1200x800 canvas
-    this.tolerance = config.tolerance || 40; 
+    this.tolerance = config.tolerance || 40;
+    
+    // NEW: Difficulty mode ('simple' or 'rotated')
+    this.difficulty = config.difficulty || 'simple';
+    
+    // NEW: Rotation tolerance in degrees (±10°)
+    this.rotationTolerance = config.rotationTolerance || 10;
   }
 
   async onStart() {
@@ -98,6 +104,17 @@ class JigsawActivity extends BaseActivity {
           p.currentX = -p.pieceWidth + padding;
           p.currentY = Math.random() * (this.canvasHeight - p.pieceHeight);
           break;
+      }
+      
+      // NEW: Initialize rotation for rotated mode
+      if (this.difficulty === 'rotated') {
+        // Random rotation between 0 and 359 degrees
+        p.currentRotation = Math.floor(Math.random() * 360);
+        p.targetRotation = 0; // All pieces should be upright when placed
+      } else {
+        // Simple mode: no rotation
+        p.currentRotation = 0;
+        p.targetRotation = 0;
       }
     });
 
@@ -204,11 +221,32 @@ class JigsawActivity extends BaseActivity {
   onPlayerAction(player, actionType, actionData) {
     if (actionType === 'place-piece') {
       return this.handlePiecePlacement(player, actionData);
+    } else if (actionType === 'rotate-piece') {
+      // NEW: Handle rotation action
+      return this.handlePieceRotation(player, actionData);
     }
     return null;
   }
 
-  handlePiecePlacement(player, { pieceId, currentX, currentY }) {
+  // NEW: Handle piece rotation
+  handlePieceRotation(player, { pieceId, rotation }) {
+    const piece = this.pieces.find(p => p.id === pieceId);
+    if (!piece) return { success: false, error: 'Piece not found' };
+    if (piece.isPlaced) return { success: false, error: 'Piece already placed' };
+    if (piece.assignedTo !== player.id) return { success: false, error: 'Piece not assigned to you' };
+
+    // Update current rotation
+    piece.currentRotation = rotation % 360;
+    if (piece.currentRotation < 0) piece.currentRotation += 360;
+
+    return {
+      success: true,
+      pieceId: piece.id,
+      rotation: piece.currentRotation
+    };
+  }
+
+  handlePiecePlacement(player, { pieceId, currentX, currentY, currentRotation }) {
     const piece = this.pieces.find(p => p.id === pieceId);
     if (!piece) return { success: false, error: 'Piece not found' };
     if (piece.isPlaced) return { success: false, error: 'Piece already placed' };
@@ -218,13 +256,30 @@ class JigsawActivity extends BaseActivity {
     const dx = Math.abs(currentX - piece.correctX);
     const dy = Math.abs(currentY - piece.correctY);
     
-    const isCorrect = dx <= this.tolerance && dy <= this.tolerance;
+    const positionCorrect = dx <= this.tolerance && dy <= this.tolerance;
+    
+    // NEW: Check rotation if in rotated mode
+    let rotationCorrect = true;
+    if (this.difficulty === 'rotated' && currentRotation !== undefined) {
+      // Update piece rotation
+      piece.currentRotation = currentRotation % 360;
+      if (piece.currentRotation < 0) piece.currentRotation += 360;
+      
+      // Calculate rotation difference considering wrap-around
+      let rotDiff = Math.abs(piece.currentRotation - piece.targetRotation);
+      if (rotDiff > 180) rotDiff = 360 - rotDiff;
+      
+      rotationCorrect = rotDiff <= this.rotationTolerance;
+    }
+    
+    const isCorrect = positionCorrect && rotationCorrect;
 
     if (isCorrect) {
-      // Snap piece into correct position
+      // Snap piece into correct position and rotation
       piece.isPlaced = true;
       piece.currentX = piece.correctX;
       piece.currentY = piece.correctY;
+      piece.currentRotation = piece.targetRotation; // Snap to correct rotation
       piece.placedBy = player.id;
       piece.placedByName = player.displayName;
       piece.assignedTo = null;
@@ -249,15 +304,20 @@ class JigsawActivity extends BaseActivity {
         pieceId: piece.id,
         correctX: piece.correctX,
         correctY: piece.correctY,
+        correctRotation: piece.targetRotation,
         placedBy: player.displayName,
         score: player.score,
         isSolved,
         progress: this.getProgress()
       };
     } else {
-      // Wrong placement - track position and update player score (slight penalty or just sync coordinates)
+      // Wrong placement - update position and rotation
       piece.currentX = currentX;
       piece.currentY = currentY;
+      if (currentRotation !== undefined) {
+        piece.currentRotation = currentRotation % 360;
+        if (piece.currentRotation < 0) piece.currentRotation += 360;
+      }
       
       return {
         success: true,
@@ -265,6 +325,7 @@ class JigsawActivity extends BaseActivity {
         pieceId: piece.id,
         currentX,
         currentY,
+        currentRotation: piece.currentRotation,
         progress: this.getProgress()
       };
     }
@@ -285,6 +346,7 @@ class JigsawActivity extends BaseActivity {
       totalPieces: this.totalPieces,
       piecesPlaced: this.piecesPlaced,
       progress: this.getProgress(),
+      difficulty: this.difficulty, // NEW
       pieces: this.pieces.map(p => ({
         id: p.id,
         row: p.row,
@@ -293,6 +355,7 @@ class JigsawActivity extends BaseActivity {
         currentY: p.currentY,
         correctX: p.correctX,
         correctY: p.correctY,
+        currentRotation: p.currentRotation, // NEW
         isPlaced: p.isPlaced,
         placedByName: p.placedByName,
         imageUrl: p.imageUrl
@@ -311,7 +374,9 @@ class JigsawActivity extends BaseActivity {
         correctX: p.correctX,
         correctY: p.correctY,
         pieceWidth: p.pieceWidth,
-        pieceHeight: p.pieceHeight
+        pieceHeight: p.pieceHeight,
+        currentRotation: p.currentRotation, // NEW
+        targetRotation: p.targetRotation // NEW
       }));
 
     return {
@@ -324,6 +389,7 @@ class JigsawActivity extends BaseActivity {
       piecesPlaced: this.piecesPlaced,
       totalPieces: this.totalPieces,
       progress: this.getProgress(),
+      difficulty: this.difficulty, // NEW
       assignedPieces
     };
   }

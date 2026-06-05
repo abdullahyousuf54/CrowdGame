@@ -86,7 +86,7 @@ class RoomManager {
   }
 
   // Add participant to room
-  joinRoom(roomCode, socketId, displayName) {
+  joinRoom(roomCode, socketId, displayName, avatarData = null) {
     const room = this.getRoom(roomCode);
     if (!room) return { success: false, error: 'Room not found' };
 
@@ -104,6 +104,10 @@ class RoomManager {
       // Reconnection
       participant.socketId = socketId;
       participant.isConnected = true;
+      // Update avatar data if provided
+      if (avatarData) {
+        participant.avatarData = avatarData;
+      }
       console.log(`Player ${displayName} reconnected to room ${roomCode}`);
     } else {
       // New Player Join
@@ -115,7 +119,8 @@ class RoomManager {
         socketId,
         score: 0,
         isConnected: true,
-        joinedAt: new Date()
+        joinedAt: new Date(),
+        avatarData: avatarData || null
       };
       room.participants.set(playerId, participant);
       console.log(`Player ${displayName} joined room ${roomCode}`);
@@ -129,7 +134,8 @@ class RoomManager {
           color: color,
           socket_id: socketId,
           score: 0,
-          is_connected: true
+          is_connected: true,
+          avatar_data: avatarData ? JSON.stringify(avatarData) : null
         }).catch(err => console.error('DB error saving participant:', err));
       }
     }
@@ -145,6 +151,7 @@ class RoomManager {
       displayName: participant.displayName,
       color: participant.color,
       score: participant.score,
+      avatarData: participant.avatarData,
       count: this.getConnectedCount(roomCode)
     });
 

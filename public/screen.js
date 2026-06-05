@@ -26,6 +26,10 @@ let puzzleImage = new Image();
 let puzzleData = null; // Contains coordinates, pieces info
 let dragPositions = new Map(); // pieceId -> { currentX, currentY } (for live drag visualizers)
 
+// Live Leaderboard State
+let participants = new Map(); // playerId -> { id, displayName, color, score, avatarData }
+let leaderboardUpdateTimeout = null;
+
 // Procedural Audio Synthesizer (Same synth engine as desktop.js for zero asset load!)
 let audioCtx = null;
 
@@ -185,10 +189,32 @@ function setupConnection() {
   socket.on('player-joined', (player) => {
     initAudio();
     addPlayerToLobbyGrid(player);
+    
+    // Add to participants map for leaderboard
+    participants.set(player.id, {
+      id: player.id,
+      displayName: player.displayName,
+      color: player.color,
+      score: player.score || 0,
+      avatarData: player.avatarData
+    });
+    
+    // Update live leaderboard if in gameplay
+    if (currentState === SCREEN_STATE.PLAYING) {
+      updateLiveLeaderboard();
+    }
   });
 
   socket.on('player-left', (player) => {
     removePlayerFromLobbyGrid(player.id);
+    
+    // Remove from participants
+    participants.delete(player.id);
+    
+    // Update live leaderboard if in gameplay
+    if (currentState === SCREEN_STATE.PLAYING) {
+      updateLiveLeaderboard();
+    }
   });
 
   socket.on('room-update', (data) => {
@@ -198,19 +224,48 @@ function setupConnection() {
   // Event: Puzzle starts!
   socket.on('activity-start', (data) => {
     if (data.type === 'jigsaw') {
+      // Sync participants data if available
+      if (data.participants) {
+        participants.clear();
+        data.participants.forEach(p => {
+          participants.set(p.id, {
+            id: p.id,
+            displayName: p.displayName,
+            color: p.color,
+            score: p.score || 0,
+            avatarData: p.avatarData
+          });
+        });
+      }
       startJigsawPuzzle(data.state);
     }
   });
 
   // Event: Piece dragged/moved by player
   socket.on('piece-move', (data) => {
-    const { pieceId, currentX, currentY } = data;
-    dragPositions.set(pieceId, { currentX, currentY });
+    const { pieceId, currentX, currentY, currentRotation } = data;
+    dragPositions.set(pieceId, { currentX, currentY, currentRotation });
+  });
+
+  // NEW: Event: Piece rotated by player
+  socket.on('piece-rotated', (data) => {
+    const { pieceId, rotation } = data;
+    if (puzzleData) {
+      const piece = puzzleData.pieces.find(p => p.id === pieceId);
+      if (piece && !piece.isPlaced) {
+        piece.currentRotation = rotation;
+        // Update drag position rotation if it exists
+        const dragPos = dragPositions.get(pieceId);
+        if (dragPos) {
+          dragPos.currentRotation = rotation;
+        }
+      }
+    }
   });
 
   // Event: Piece snapped correctly
   socket.on('piece-placed', (data) => {
-    const { pieceId, correctX, correctY, placedBy, progress, isSolved } = data;
+    const { pieceId, correctX, correctY, correctRotation, placedBy, progress, isSolved, score, playerId } = data;
     
     // Snapped piece removes its temporary live dragging marker
     dragPositions.delete(pieceId);
@@ -221,7 +276,18 @@ function setupConnection() {
         piece.isPlaced = true;
         piece.currentX = correctX;
         piece.currentY = correctY;
+        piece.currentRotation = correctRotation || 0; // NEW: Snap to correct rotation
         piece.placedByName = placedBy;
+      }
+    }
+
+    // Update participant score in leaderboard
+    if (playerId && score !== undefined) {
+      const participant = participants.get(playerId);
+      if (participant) {
+        participant.score = score;
+        // Debounced update to avoid too many renders
+        scheduleLeaderboardUpdate();
       }
     }
 
@@ -257,9 +323,20 @@ function addPlayerToLobbyGrid(player) {
   div.id = `p-${player.id}`;
   div.className = 'player-avatar';
   div.style.borderColor = player.color;
-  div.style.textShadow = `0 0 5px ${player.color}`;
   div.style.boxShadow = `0 0 8px ${player.color}22`;
-  div.textContent = player.displayName.toUpperCase();
+  
+  // Create avatar image if available
+  if (player.avatarData && player.avatarData.url) {
+    div.innerHTML = `
+      <img src="${player.avatarData.url}" alt="${player.displayName}" class="player-avatar-img">
+      <div class="player-name" style="color: ${player.color}; text-shadow: 0 0 5px ${player.color};">${player.displayName.toUpperCase()}</div>
+    `;
+  } else {
+    // Fallback to text-only display
+    div.style.textShadow = `0 0 5px ${player.color}`;
+    div.textContent = player.displayName.toUpperCase();
+  }
+  
   grid.appendChild(div);
 
   document.getElementById('playerCount').textContent = grid.children.length;
@@ -308,6 +385,93 @@ function startJigsawPuzzle(state) {
   // Sync initial HUD
   document.getElementById('hudProgressFill').style.width = `${state.progress}%`;
   document.getElementById('hudProgressText').textContent = `${state.progress}%`;
+  
+  // Initialize live leaderboard
+  updateLiveLeaderboard();
+}
+
+// Live Leaderboard Functions
+function scheduleLeaderboardUpdate() {
+  // Debounce updates to avoid excessive re-renders (max 2 updates per second)
+  if (leaderboardUpdateTimeout) {
+    clearTimeout(leaderboardUpdateTimeout);
+  }
+  leaderboardUpdateTimeout = setTimeout(() => {
+    updateLiveLeaderboard();
+  }, 500);
+}
+
+function updateLiveLeaderboard() {
+  const container = document.getElementById('liveLeaderboardBody');
+  if (!container) return;
+  
+  // Get sorted participants by score (descending)
+  const sortedParticipants = Array.from(participants.values())
+    .sort((a, b) => b.score - a.score);
+  
+  // Store current positions for animation
+  const existingElements = new Map();
+  Array.from(container.children).forEach((el, index) => {
+    const playerId = el.dataset.playerId;
+    if (playerId) {
+      existingElements.set(playerId, { element: el, oldRank: index + 1 });
+    }
+  });
+  
+  // Clear container
+  container.innerHTML = '';
+  
+  // Render leaderboard
+  sortedParticipants.forEach((participant, index) => {
+    const rank = index + 1;
+    const item = document.createElement('div');
+    item.className = 'live-leaderboard-item';
+    item.dataset.playerId = participant.id;
+    
+    // Add rank badge styling for top 3
+    let rankBadgeClass = 'rank-badge';
+    let rankDisplay = `#${rank}`;
+    if (rank === 1) {
+      rankBadgeClass += ' rank-1';
+      rankDisplay = '🥇';
+    } else if (rank === 2) {
+      rankBadgeClass += ' rank-2';
+      rankDisplay = '🥈';
+    } else if (rank === 3) {
+      rankBadgeClass += ' rank-3';
+      rankDisplay = '🥉';
+    }
+    
+    // Check if rank changed
+    const oldData = existingElements.get(participant.id);
+    const rankChanged = oldData && oldData.oldRank !== rank;
+    if (rankChanged) {
+      item.classList.add('rank-changed');
+      // Remove animation class after animation completes
+      setTimeout(() => item.classList.remove('rank-changed'), 600);
+    }
+    
+    // Avatar HTML
+    let avatarHtml = '';
+    if (participant.avatarData && participant.avatarData.url) {
+      avatarHtml = `<img src="${participant.avatarData.url}" alt="${participant.displayName}" class="live-avatar">`;
+    } else {
+      // Fallback: colored circle with initial
+      const initial = participant.displayName.charAt(0).toUpperCase();
+      avatarHtml = `<div class="live-avatar-fallback" style="background: ${participant.color}">${initial}</div>`;
+    }
+    
+    item.innerHTML = `
+      <div class="${rankBadgeClass}">${rankDisplay}</div>
+      <div class="live-avatar-container">${avatarHtml}</div>
+      <div class="live-player-info">
+        <div class="live-player-name" style="color: ${participant.color}">${participant.displayName.toUpperCase()}</div>
+        <div class="live-player-score">${participant.score} PTS</div>
+      </div>
+    `;
+    
+    container.appendChild(item);
+  });
 }
 
 function updateJigsaw() {
@@ -323,6 +487,10 @@ function updateJigsaw() {
         // Interp towards player drag coordinates
         p.currentX += (dragPos.currentX - p.currentX) * 0.2;
         p.currentY += (dragPos.currentY - p.currentY) * 0.2;
+        // NEW: Update rotation from drag position
+        if (dragPos.currentRotation !== undefined) {
+          p.currentRotation = dragPos.currentRotation;
+        }
       } else {
         // Natural drift
         p.currentX += Math.sin(Date.now() / 1500 + p.row) * 0.15;
@@ -377,13 +545,33 @@ function drawJigsaw() {
   // 3. Draw Placed pieces first (lower layer)
   puzzleData.pieces.forEach(p => {
     if (p.isPlaced && p.imgElement) {
-      puzzleCtx.drawImage(
-        p.imgElement,
-        p.currentX,
-        p.currentY,
-        puzzleData.pieceWidth,
-        puzzleData.pieceHeight
-      );
+      puzzleCtx.save();
+      
+      // NEW: Apply rotation for placed pieces
+      const rotation = p.currentRotation || 0;
+      if (rotation !== 0) {
+        const centerX = p.currentX + puzzleData.pieceWidth / 2;
+        const centerY = p.currentY + puzzleData.pieceHeight / 2;
+        puzzleCtx.translate(centerX, centerY);
+        puzzleCtx.rotate((rotation * Math.PI) / 180);
+        puzzleCtx.drawImage(
+          p.imgElement,
+          -puzzleData.pieceWidth / 2,
+          -puzzleData.pieceHeight / 2,
+          puzzleData.pieceWidth,
+          puzzleData.pieceHeight
+        );
+      } else {
+        puzzleCtx.drawImage(
+          p.imgElement,
+          p.currentX,
+          p.currentY,
+          puzzleData.pieceWidth,
+          puzzleData.pieceHeight
+        );
+      }
+      
+      puzzleCtx.restore();
     }
   });
 
@@ -391,22 +579,54 @@ function drawJigsaw() {
   puzzleData.pieces.forEach(p => {
     if (!p.isPlaced && p.imgElement) {
       puzzleCtx.save();
-      // Draw neon placeholder box glow
-      puzzleCtx.shadowBlur = 15;
-      puzzleCtx.shadowColor = '#00f3ff';
-      puzzleCtx.strokeStyle = 'rgba(0, 243, 255, 0.6)';
-      puzzleCtx.lineWidth = 2;
-      // Use puzzleData.pieceHeight (p.pieceHeight is not in the screen state payload)
-      puzzleCtx.strokeRect(p.currentX, p.currentY, puzzleData.pieceWidth, puzzleData.pieceHeight);
+      
+      // NEW: Apply rotation for unplaced pieces
+      const rotation = p.currentRotation || 0;
+      const centerX = p.currentX + puzzleData.pieceWidth / 2;
+      const centerY = p.currentY + puzzleData.pieceHeight / 2;
+      
+      if (rotation !== 0) {
+        puzzleCtx.translate(centerX, centerY);
+        puzzleCtx.rotate((rotation * Math.PI) / 180);
+        
+        // Draw neon placeholder box glow
+        puzzleCtx.shadowBlur = 15;
+        puzzleCtx.shadowColor = '#00f3ff';
+        puzzleCtx.strokeStyle = 'rgba(0, 243, 255, 0.6)';
+        puzzleCtx.lineWidth = 2;
+        puzzleCtx.strokeRect(
+          -puzzleData.pieceWidth / 2,
+          -puzzleData.pieceHeight / 2,
+          puzzleData.pieceWidth,
+          puzzleData.pieceHeight
+        );
 
-      // Draw actual piece image
-      puzzleCtx.drawImage(
-        p.imgElement,
-        p.currentX,
-        p.currentY,
-        puzzleData.pieceWidth,
-        puzzleData.pieceHeight
-      );
+        // Draw actual piece image
+        puzzleCtx.drawImage(
+          p.imgElement,
+          -puzzleData.pieceWidth / 2,
+          -puzzleData.pieceHeight / 2,
+          puzzleData.pieceWidth,
+          puzzleData.pieceHeight
+        );
+      } else {
+        // Draw neon placeholder box glow
+        puzzleCtx.shadowBlur = 15;
+        puzzleCtx.shadowColor = '#00f3ff';
+        puzzleCtx.strokeStyle = 'rgba(0, 243, 255, 0.6)';
+        puzzleCtx.lineWidth = 2;
+        puzzleCtx.strokeRect(p.currentX, p.currentY, puzzleData.pieceWidth, puzzleData.pieceHeight);
+
+        // Draw actual piece image
+        puzzleCtx.drawImage(
+          p.imgElement,
+          p.currentX,
+          p.currentY,
+          puzzleData.pieceWidth,
+          puzzleData.pieceHeight
+        );
+      }
+      
       puzzleCtx.restore();
     }
   });
@@ -463,9 +683,16 @@ function triggerPuzzleCompletion({ leaderboard, totalPieces }) {
     
     const rankPrefix = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
     
+    // Include avatar if available
+    let avatarHtml = '';
+    if (player.avatarData && player.avatarData.url) {
+      avatarHtml = `<img src="${player.avatarData.url}" alt="${player.displayName}" class="leaderboard-avatar">`;
+    }
+    
     item.innerHTML = `
       <div class="rank-name">
         <span class="rank">${rankPrefix}</span>
+        ${avatarHtml}
         <span class="name" style="color: ${player.color}">${player.displayName.toUpperCase()}</span>
       </div>
       <div class="score">${player.score} PTS</div>

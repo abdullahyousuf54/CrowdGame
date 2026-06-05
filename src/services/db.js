@@ -74,9 +74,19 @@ async function initSchema() {
         table.string('socket_id', 50).nullable();
         table.integer('score').defaultTo(0);
         table.boolean('is_connected').defaultTo(true);
+        table.text('avatar_data').nullable(); // JSON string containing avatar configuration
         table.timestamp('joined_at').defaultTo(db.fn.now());
       });
       console.log('Created table: participants');
+    } else {
+      // Add avatar_data column if it doesn't exist (migration for existing tables)
+      const hasAvatarColumn = await db.schema.hasColumn('participants', 'avatar_data');
+      if (!hasAvatarColumn) {
+        await db.schema.table('participants', (table) => {
+          table.text('avatar_data').nullable();
+        });
+        console.log('Added avatar_data column to participants table');
+      }
     }
 
     // 4. Puzzle States table

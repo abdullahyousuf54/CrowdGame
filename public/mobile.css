@@ -421,11 +421,12 @@ input[type="text"]:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   z-index: 10;
+  transition: transform 0.05s ease-out;
 }
 
-.draggable-piece img {
+.piece-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -440,9 +441,58 @@ input[type="text"]:focus {
   z-index: 100;
 }
 
+.draggable-piece.rotating {
+  border-color: var(--color-yellow);
+  box-shadow: 0 0 20px rgba(255, 184, 0, 0.6);
+}
+
 .draggable-piece.placed {
   pointer-events: none;
   opacity: 0.5;
+}
+
+/* NEW: Rotation Handle */
+.rotation-handle {
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: 40px;
+  height: 40px;
+  background: var(--color-yellow);
+  border: 3px solid #000;
+  border-radius: 50%;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(255, 184, 0, 0.6), 0 3px 8px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  touch-action: none;
+  transition: transform 0.2s ease;
+}
+
+.rotation-handle::before {
+  content: '↻';
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  line-height: 1;
+}
+
+.rotation-handle:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: 0 0 25px rgba(255, 184, 0, 0.8), 0 3px 10px rgba(0, 0, 0, 0.7);
+}
+
+.draggable-piece.rotating .rotation-handle {
+  background: var(--color-pink);
+  animation: pulse-rotate 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse-rotate {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 /* Footer alerts */
@@ -576,4 +626,243 @@ input[type="text"]:focus {
 
 .piece-tab.active .piece-tab-info {
   color: #fff;
+}
+
+/* Avatar Styling */
+.avatar-preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.avatar-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--color-cyan);
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-pink);
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 10px rgba(255, 0, 127, 0.3);
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
+  box-shadow: 0 0 20px rgba(255, 0, 127, 0.6);
+}
+
+.avatar-img-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--color-cyan);
+  object-fit: cover;
+  margin-right: 5px;
+}
+
+.avatar-img-large {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 4px solid var(--color-cyan);
+  object-fit: cover;
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+}
+
+.player-avatar-display {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+/* Avatar Customization Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal.hidden {
+  display: none !important;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 500px;
+  background: var(--panel-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modalSlideIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  color: var(--color-cyan);
+  font-weight: bold;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 0, 127, 0.2);
+  border: 1px solid var(--color-pink);
+  color: var(--color-pink);
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--color-pink);
+  color: #000;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.avatar-large-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 20px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 243, 255, 0.2);
+}
+
+.avatar-img-xl {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 4px solid var(--color-cyan);
+  box-shadow: 0 0 30px rgba(0, 243, 255, 0.5);
+  object-fit: cover;
+}
+
+.customization-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  margin-bottom: 0;
+}
+
+.custom-select {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  font-family: var(--font-main);
+  cursor: pointer;
+}
+
+.custom-select:focus {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+}
+
+.color-input {
+  width: 100%;
+  height: 45px;
+  padding: 5px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.color-input:focus {
+  border-color: var(--color-cyan);
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-footer .btn {
+  flex: 1;
 }

@@ -241,15 +241,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const rows = parseInt(gridRows.value) || 4;
     const cols = parseInt(gridCols.value) || 6;
+    const difficulty = document.querySelector('input[name="difficulty"]:checked')?.value || 'simple';
     
     socket.emit('admin-start-activity', {
       roomCode: activeRoomCode,
       rows,
       cols,
-      imageUrl: uploadedImageUrl // Null means it uses the default server-generated synthwave image
+      imageUrl: uploadedImageUrl, // Null means it uses the default server-generated synthwave image
+      difficulty
     });
 
-    consoleLogMsg(`Activity jigsaw triggered (grid: ${rows}x${cols}). Slicing image...`);
+    consoleLogMsg(`Activity jigsaw triggered (grid: ${rows}x${cols}, difficulty: ${difficulty}). Slicing image...`);
     activeRoomStatusDisp.textContent = 'ACTIVE';
     activeRoomStatusDisp.className = 'value status-badge active';
     startActivityBtn.disabled = true;

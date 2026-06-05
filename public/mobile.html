@@ -27,6 +27,19 @@
           <label for="displayNameInput">Your Pilot Display Name</label>
           <input type="text" id="displayNameInput" placeholder="e.g. Maverick" required maxlength="12">
         </div>
+        
+        <!-- Avatar Section -->
+        <div class="form-group">
+          <label>Your Avatar</label>
+          <div class="avatar-preview-container">
+            <div class="avatar-preview" id="avatarPreview">
+              <!-- Avatar will be injected here -->
+            </div>
+            <button type="button" class="btn-icon" id="randomizeAvatarBtn" title="Randomize Avatar">🎲</button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-block" id="customizeAvatarBtn">Customize Avatar</button>
+        </div>
+
         <div class="form-group">
           <label>ROOM CODE</label>
           <div class="room-code-badge" id="joinRoomCode">----</div>
@@ -51,6 +64,9 @@
       </div>
 
       <div class="player-summary">
+        <div class="player-avatar-display">
+          <img id="waitingAvatarImg" src="" alt="Your Avatar" class="avatar-img-large">
+        </div>
         <div class="summary-item">
           <span class="label">COLOR CHANNEL</span>
           <span class="value" id="playerColorVal" style="color: #ff007f;">PINK</span>
@@ -67,6 +83,7 @@
   <div id="gameplaySection" class="mobile-container hidden">
     <header class="gameplay-header">
       <div class="pilot-info">
+        <img id="headerAvatarImg" src="" alt="Your Avatar" class="avatar-img-small">
         <span class="p-color-dot" id="headerColorDot"></span>
         <span class="p-name" id="headerPilotName">PILOT</span>
       </div>
@@ -93,9 +110,10 @@
 
         <!-- Floating pieces elements assigned to this player -->
         <div class="pieces-pool" id="assignedPiecesPool">
-          <!-- Pieces will be injected here -->
+          <!-- Pieces will be injected here with rotation handles -->
         </div>
       </div>
+      
       <!-- Selector for assigned pieces -->
       <div class="piece-selector-container" id="pieceSelectorContainer"></div>
     </div>
@@ -124,6 +142,152 @@
       </div>
       
       <button class="btn btn-secondary btn-block" onclick="window.location.reload()">Reset Controller</button>
+    </div>
+  </div>
+
+  <!-- Avatar Customization Modal -->
+  <div id="avatarModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Customize Your Avatar</h2>
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="avatar-large-preview" id="modalAvatarPreview">
+          <!-- Large avatar preview -->
+        </div>
+        
+        <div class="customization-controls">
+          <div class="control-group">
+            <label for="hairStyleSelect">Hair Style</label>
+            <select id="hairStyleSelect" class="custom-select">
+              <option value="bigHair">Big Hair</option>
+              <option value="bob">Bob</option>
+              <option value="bun">Bun</option>
+              <option value="curly">Curly</option>
+              <option value="curvy">Curvy</option>
+              <option value="dreads">Dreads</option>
+              <option value="dreads01">Dreads 01</option>
+              <option value="dreads02">Dreads 02</option>
+              <option value="frida">Frida</option>
+              <option value="frizzle">Frizzle</option>
+              <option value="fro">Fro</option>
+              <option value="froBand">Fro Band</option>
+              <option value="hat">Hat</option>
+              <option value="hijab">Hijab</option>
+              <option value="longButNotTooLong">Long But Not Too Long</option>
+              <option value="miaWallace">Mia Wallace</option>
+              <option value="shaggy">Shaggy</option>
+              <option value="shaggyMullet">Shaggy Mullet</option>
+              <option value="shavedSides">Shaved Sides</option>
+              <option value="shortCurly">Short Curly</option>
+              <option value="shortFlat" selected>Short Flat</option>
+              <option value="shortRound">Short Round</option>
+              <option value="shortWaved">Short Waved</option>
+              <option value="sides">Sides</option>
+              <option value="straight01">Straight 01</option>
+              <option value="straight02">Straight 02</option>
+              <option value="straightAndStrand">Straight And Strand</option>
+              <option value="theCaesar">The Caesar</option>
+              <option value="theCaesarAndSidePart">The Caesar Side Part</option>
+              <option value="turban">Turban</option>
+              <option value="winterHat1">Winter Hat 1</option>
+              <option value="winterHat02">Winter Hat 2</option>
+              <option value="winterHat03">Winter Hat 3</option>
+              <option value="winterHat04">Winter Hat 4</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="hairColorSelect">Hair Color</label>
+            <select id="hairColorSelect" class="custom-select">
+              <option value="a55728">Auburn</option>
+              <option value="2c1b18">Black</option>
+              <option value="b58143" selected>Brown</option>
+              <option value="d6b370">Blonde</option>
+              <option value="724133">Dark Brown</option>
+              <option value="4a312c">Brown Dark</option>
+              <option value="f59797">Pastel Pink</option>
+              <option value="ecdcbf">Platinum</option>
+              <option value="c93305">Red</option>
+              <option value="e8e1e1">Silver Gray</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="clothingSelect">Clothing</label>
+            <select id="clothingSelect" class="custom-select">
+              <option value="blazerAndShirt">Blazer Shirt</option>
+              <option value="blazerAndSweater">Blazer Sweater</option>
+              <option value="collarAndSweater">Collar Sweater</option>
+              <option value="graphicShirt">Graphic Shirt</option>
+              <option value="hoodie" selected>Hoodie</option>
+              <option value="overall">Overall</option>
+              <option value="shirtCrewNeck">Shirt Crew Neck</option>
+              <option value="shirtScoopNeck">Shirt Scoop Neck</option>
+              <option value="shirtVNeck">Shirt V Neck</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="clothingColorSelect">Clothing Color</label>
+            <select id="clothingColorSelect" class="custom-select">
+              <option value="262e33">Black</option>
+              <option value="65c9ff">Cyan</option>
+              <option value="5199e4" selected>Blue</option>
+              <option value="25557c">Navy</option>
+              <option value="e6e6e6">Light Gray</option>
+              <option value="929598">Gray</option>
+              <option value="3c4f5c">Charcoal</option>
+              <option value="b1e2ff">Pastel Blue</option>
+              <option value="a7ffc4">Pastel Green</option>
+              <option value="ffafb9">Pastel Pink</option>
+              <option value="ffffb1">Pastel Yellow</option>
+              <option value="ff488e">Hot Pink</option>
+              <option value="ff5c5c">Red</option>
+              <option value="ffffff">White</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="accessoriesSelect">Accessories</label>
+            <select id="accessoriesSelect" class="custom-select">
+              <option value="">None</option>
+              <option value="eyepatch">Eyepatch</option>
+              <option value="kurt">Kurt</option>
+              <option value="prescription01">Prescription 01</option>
+              <option value="prescription02">Prescription 02</option>
+              <option value="round">Round</option>
+              <option value="sunglasses">Sunglasses</option>
+              <option value="wayfarers">Wayfarers</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="skinColorSelect">Skin Tone</label>
+            <select id="skinColorSelect" class="custom-select">
+              <option value="614335">Tan</option>
+              <option value="d08b5b">Light Tan</option>
+              <option value="ae5d29" selected>Medium</option>
+              <option value="edb98a">Light</option>
+              <option value="ffdbb4">Very Light</option>
+              <option value="fd9841">Warm</option>
+              <option value="f8d25c">Golden</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="bgColorInput">Background Color</label>
+            <input type="color" id="bgColorInput" value="#b6e3f4" class="color-input">
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-secondary btn-block" id="modalRandomizeBtn">🎲 Randomize All</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveAvatarBtn">Save Avatar</button>
+      </div>
     </div>
   </div>
 </body>

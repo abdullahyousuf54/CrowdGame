@@ -51,6 +51,149 @@ flowchart TD
 
 ---
 
+## 🚀 Enhancements Added After Fork
+
+This fork extends the original CrowdPlay experience with three major feature enhancements designed to increase player engagement, competitive dynamics, and gameplay depth.
+
+### 🎭 Custom Player Avatars
+
+Players can now personalize their in-game identity by selecting and customizing a unique avatar before joining a game.
+
+**Features:**
+- **DiceBear API Integration**: Leverages the DiceBear Avataaars style API (v10.x) to generate diverse, customizable avatars
+- **Real-Time Customization**: Interactive modal interface allows players to adjust:
+  - Hair style and color (30+ variants)
+  - Clothing style and color
+  - Accessories (eyewear, eyepatch, etc.)
+  - Skin tone
+  - Background color
+- **Randomization**: One-click randomize button for instant avatar generation
+- **Persistent Display**: Avatars appear consistently across all game screens:
+  - Join screen (avatar preview and customization)
+  - Lobby waiting room
+  - Gameplay header
+  - Live leaderboard
+  - Winner celebration screen
+
+**Benefits:**
+- Improved player identity and recognition
+- Enhanced multiplayer engagement
+- Easier tracking of individual players during gameplay
+- More personalized experience in crowd gaming environments
+
+**Screenshots:**
+```
+[INSERT SCREENSHOT - Avatar Selection UI]
+[INSERT SCREENSHOT - Player Avatar in Game]
+```
+
+---
+
+### 🏆 Real-Time Live Leaderboard
+
+A dynamic, spectator-friendly leaderboard panel now displays on the main shared screen throughout gameplay, updating instantly as players earn points.
+
+**Features:**
+- **Live Score Updates**: Leaderboard automatically updates in real-time via Socket.IO events
+- **Automatic Ranking**: Players are sorted dynamically by score (descending)
+- **Animated Rank Changes**: Smooth slide animations highlight position changes
+- **Special Top 3 Styling**:
+  - 🥇 Gold medal for 1st place with continuous pulse animation
+  - 🥈 Silver medal for 2nd place
+  - 🥉 Bronze medal for 3rd place
+- **Player Information Display**: Shows rank, avatar, display name, and current score
+- **Optimized for Spectators**: Large text, high contrast, visible from a distance
+- **Debounced Updates**: Efficient rendering with 500ms debounce to handle rapid score changes
+
+**Display Format:**
+```
+#  [Avatar]  PLAYER NAME     SCORE
+🥇 [Avatar]  ALICE          150 PTS
+🥈 [Avatar]  BOB            120 PTS
+🥉 [Avatar]  CHARLIE        100 PTS
+#4 [Avatar]  DIANA           85 PTS
+```
+
+**Implementation:**
+- Leaderboard panel positioned on the right side of the main screen (350px width)
+- Does not interfere with mobile player experience (screen-only feature)
+- Scrollable container supports any number of players
+- Updates triggered by `piece-placed` socket events with player score data
+
+**Benefits:**
+- Encourages competitive gameplay
+- Creates excitement and engagement for both players and spectators
+- Provides instant feedback on player performance
+- Enhances the crowd gaming experience in event/conference settings
+
+**Screenshots:**
+```
+[INSERT SCREENSHOT - Live Leaderboard]
+[INSERT SCREENSHOT - Leaderboard During Gameplay]
+```
+
+---
+
+### 🧩 Advanced Puzzle Difficulty: Rotated Pieces
+
+A new difficulty mode introduces piece rotation mechanics, significantly increasing puzzle complexity and adding a skill-based challenge layer.
+
+**Features:**
+- **Dual Difficulty Modes**:
+  - **Simple Mode** (Default): Preserves original gameplay with correctly oriented pieces
+  - **Rotated Pieces Mode**: Introduces random rotation challenge
+- **Random Initial Rotation**: In rotated mode, each piece spawns with a random 0-359° orientation
+- **Rotation Controls**: Players use a dedicated rotation handle (circular button) on mobile devices
+- **Free-Angle Rotation**: Continuous rotation (not limited to 90° increments) via intuitive drag-to-rotate gesture
+- **Placement Validation**: Server validates both position AND rotation (±10° tolerance)
+- **Visual Feedback**:
+  - Rotation handle changes color when active
+  - Current rotation angle displayed as hint text
+  - Smooth CSS transform animations during rotation
+- **Backward Compatible**: Simple mode ensures existing gameplay remains unchanged
+
+**Rotation Mechanics:**
+- **Rotation Handle**: Yellow circular button with rotate icon (↻) positioned at bottom-right of piece
+- **Gesture-Based**: Drag the rotation handle in a circular motion around the piece center
+- **Live Updates**: Rotation state synced to server and other clients in real-time
+- **Tolerance System**: ±10° tolerance prevents frustration while maintaining challenge
+
+**Admin Configuration:**
+- Difficulty selector added to admin panel setup form
+- Radio button interface: `Simple (Default)` / `Rotated Pieces`
+- Difficulty parameter sent with `admin-start-activity` socket event
+
+**Benefits:**
+- Dramatically increases puzzle difficulty
+- Introduces spatial reasoning and orientation skills
+- Creates greater player skill differentiation
+- Adds significant replayability to existing puzzle content
+- Enables advanced player challenges and competitive modes
+
+**Screenshots:**
+```
+[INSERT SCREENSHOT - Difficulty Selection in Admin Panel]
+[INSERT SCREENSHOT - Rotated Puzzle Piece with Rotation Handle]
+[INSERT SCREENSHOT - Piece Rotation in Action]
+```
+
+---
+
+### 📊 Fork Enhancements Summary
+
+This fork extends the original CrowdPlay multiplayer puzzle experience with:
+
+- ✅ **Personalized player avatars** with real-time customization
+- ✅ **Real-time competitive leaderboard** with animations and spectator-friendly design
+- ✅ **Advanced puzzle difficulty modes** with free-angle piece rotation
+- ✅ **Enhanced multiplayer engagement** and social gameplay dynamics
+- ✅ **Improved spectator experience** for event and conference settings
+- ✅ **Increased gameplay depth and replayability** through difficulty scaling
+
+These additions were designed to build upon the existing Socket.IO architecture while maintaining full backward compatibility with the original game flow and multiplayer systems.
+
+---
+
 ## 📂 Project Structure
 
 ```bash
