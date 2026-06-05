@@ -1,6 +1,6 @@
 # CrowdPlay: Real-Time Multiplayer Synthwave Jigsaw Puzzle
 
-Welcome to **CrowdPlay**, a real-time, mobile-controlled multiplayer jigsaw puzzle game built with Node.js, Express, and Socket.io. 
+Welcome to **CrowdPlay**, a real-time, mobile-controlled multiplayer Jigsaw puzzle game built with Node.js, Express, and Socket.io. 
 
 CrowdPlay is designed to run in a hybrid environment: a **Big Screen View** (e.g., a TV or projector) displays the shared puzzle board, while players connect using their **Mobile Controllers** via a simple 4-character room code to drag, drop, and snap puzzle pieces into place in real time.
 
@@ -81,13 +81,17 @@ Players can now personalize their in-game identity by selecting and customizing 
 - Easier tracking of individual players during gameplay
 - More personalized experience in crowd gaming environments
 
-**Screenshots:**
-```
-[INSERT SCREENSHOT - Avatar Selection UI]
-[INSERT SCREENSHOT - Player Avatar in Game]
-```
+<h4>Avatar Selection</h4>
 
----
+<p align="center">
+  <img src="screenshots/avatar_selection1.jpeg" width="300">
+  <img src="screenshots/avatar_selection2.jpeg" width="300">
+</p>
+
+<p align="center">
+  <img src="screenshots/avatar_selection3.jpeg" width="300">
+  <img src="screenshots/avatar_selection4.png" width="300">
+</p>
 
 ### 🏆 Real-Time Live Leaderboard
 
@@ -127,10 +131,14 @@ A dynamic, spectator-friendly leaderboard panel now displays on the main shared 
 - Enhances the crowd gaming experience in event/conference settings
 
 **Screenshots:**
-```
-[INSERT SCREENSHOT - Live Leaderboard]
-[INSERT SCREENSHOT - Leaderboard During Gameplay]
-```
+
+<h4>Avatar Selection</h4>
+
+<p align="center">
+  <img src="screenshots/Real_Time_Leaderboard.png" width="800">
+</p>
+
+
 
 ---
 
@@ -171,11 +179,21 @@ A new difficulty mode introduces piece rotation mechanics, significantly increas
 - Enables advanced player challenges and competitive modes
 
 **Screenshots:**
-```
-[INSERT SCREENSHOT - Difficulty Selection in Admin Panel]
-[INSERT SCREENSHOT - Rotated Puzzle Piece with Rotation Handle]
-[INSERT SCREENSHOT - Piece Rotation in Action]
-```
+<h4>Avatar Selection</h4>
+
+<p align="center">
+  <img src="screenshots/Rotated_1.png" width="500">
+</p>
+<p align="center">
+<img src="screenshots/Rotated_2.png" width="500">
+</p>
+<br>
+<p align="center">
+  <img src="screenshots/Rotated_3.jpeg" width="300">
+</p>
+<p align="center">
+  <img src="screenshots/Rotated_4.png" width="500">
+</p>
 
 ---
 
